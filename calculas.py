@@ -75,34 +75,40 @@ class FiniteSet(Set):
             return False
     
 class InfiniteSet():
-    def __init__(self,lowerbound:Point,upperbound:Point):
+    def __init__(self,lowerbound:Point,upperbound:Point,condition:Callable[[Point],bool]):
         if lowerbound.dimention()!=upperbound.dimention():
             raise ValueError("The dimensions of the boundary values ​​must be the same")
         self.lowerbound=lowerbound
         self.upperbound=upperbound
+        self.condition=condition
 
-    def Contain(self,point:Point)->bool:
-        if point.dimention()!=self.dimention():
-            raise ValueError("Point demention does not match domain demention")
-        result=True
-        for i in range(self.dimention()):
-            lower=self.lowerbound.coordinates[i]
-            upper=self.upperbound.coordinates[i]
-            pointvaule=point.coordinates[i]
+    def Contain(self,point)->bool:
+        return self.condition(self.lowerbound,self.upperbound,point)
 
-            if not (lower<=pointvaule<=upper):
-                result=False
-                break
+   
 
-        return result
+def condition(x1:Point,x2:Point,point:Point)->bool:
+    if x1.coordinates[0]<point.coordinates[0]<x2.coordinates[0]:
+        return True
+    else:
+        return False
+x1=Point([0])
+x2=Point([10])
+x3=Point([3])
+sett=InfiniteSet(x1,x2,condition)
+print(sett.Contain(x3))
+
+
+
 
 class Domain(InfiniteSet):
-    def __init__(self,lowerbound:Point,upperbound:Point):
-        super().__init__(lowerbound,upperbound)
+    def __init__(self,lowerbound:Point,upperbound:Point,condition:Callable[[Point],bool]):
+        super().__init__(lowerbound,upperbound,condition)
         if lowerbound.dimention()!=upperbound.dimention():
             raise ValueError("The dimensions of the boundary values ​​must be the same")
         self.lowerbound=lowerbound
         self.upperbound=upperbound
+        self.condition=condition
 
     def dimention(self) -> int:
         return self.lowerbound.dimention()
@@ -118,11 +124,12 @@ class Domain(InfiniteSet):
 
 
 class Function(Domain):
-    def __init__(self,lowerbound:Point,upperbound:Point,mapping:Callable[[Point],float]):
-        super().__init__(lowerbound,upperbound)
+    def __init__(self,lowerbound:Point,upperbound:Point,mapping:Callable[[Point],float],condition:Callable[[Point],bool]):
+        super().__init__(lowerbound,upperbound,condition)
         self.mapping=mapping
         self.lowerbound=lowerbound
         self.upperbound=upperbound
+        self.condition=condition
 
     def Map(self,point:Point)->float:
         if point.dimention()!=self.dimention():
@@ -139,10 +146,11 @@ class Function(Domain):
 
 class Parameter(Domain):
     def __init__(self,lowerbound:Point,upperbound:Point,mapping:Callable[[Point],Point]):
-        super().__init__(lowerbound,upperbound)
+        super().__init__(lowerbound,upperbound,condition)
         self.mapping=mapping
         self.lowerbound=lowerbound
         self.upperbound=upperbound
+        self.condition=condition
 
     def Map(self,point:Point)->'Point':
         if point.dimention()!=self.dimention():
@@ -327,10 +335,17 @@ print(point1.add(point2),point1.scale(k),point1.inner(point2),point1.degree(poin
 def fx(point:Point)->float:
     x=point.coordinates[0]
     return x**2
+
+def condition(x1:Point,x2:Point,point:Point)->bool:
+    if x1.coordinates[0]<point.coordinates[0]<x2.coordinates[0]:
+        return True
+    else:
+        return False
+
 f_lb=Point([0])
 f_ub=Point([5])
 f_point=Point([2])
-f=Function(f_lb,f_ub,fx)
+f=Function(f_lb,f_ub,fx,condition)
 print(f.Map(f_point))
 
 
@@ -349,10 +364,16 @@ print(para.Map(p_point))
 d_lb=Point([0,0])
 d_ub=Point([10,10])
 d_point=Point([2,4])
+def d_condition(x1:Point,x2:Point,point:Point):
+    for i in range(2):
+        if not (x1.coordinates[i]<point.coordinates[i]<x2.coordinates[i]):
+            return False
+        else:
+            return True
 def fxy(point:Point)->float:
     x,y=point.coordinates
     return x**2+y**2
-d_func=Function(d_lb,d_ub,fxy)
+d_func=Function(d_lb,d_ub,fxy,d_condition)
 print(diff(d_func,d_point,1),gradient(d_func,d_point))
 
 
@@ -363,7 +384,7 @@ n_point=Point([3])
 def n_fx(point:Point)->float:
     x=point.coordinates[0]
     return x**2-2
-n_func=Function(n_lb,n_ub,n_fx)
+n_func=Function(n_lb,n_ub,n_fx,condition)
 print(newton_labson(n_func,n_point,5))
 
 
@@ -373,8 +394,13 @@ i_ub=Point([1,1])
 def i_fxy(point:Point)->float:
     x,y=point.coordinates
     return x*y+x+y
-i_func=Function(i_lb,i_ub,i_fxy)
-print(integral(i_func,[Domain(Point([0]),Point([1])),Domain(Point([0]),Point([1]))]))
+def i_condition(x1:Point,x2:Point,point:Point)->bool:
+    for i in range(2):
+        if not (x1.coordinates[i]<=point.coordinates[i]<=x2.coordinates[i]):
+            return False
+    return True
+i_func=Function(i_lb,i_ub,i_fxy,i_condition)
+print(integral(i_func,[Domain(Point([0]),Point([1]),i_condition),Domain(Point([0]),Point([1]),i_condition)]))
 
 
 #testcase : def line_integral
@@ -383,7 +409,7 @@ li_ub=Point([1,1])
 def li_fxy(point:Point)->float:
     x,y=point.coordinates
     return x**2+y**2
-li_func=Function(li_lb,li_ub,li_fxy)
+li_func=Function(li_lb,li_ub,li_fxy,i_condition)
 
 l_lb=Point([0])
 l_ub=Point([1])
