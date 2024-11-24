@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import List,Callable
 
-epsilon=1e-5
+epsilon=1e-3
 memo={}
 
 
@@ -20,10 +20,30 @@ class Point:
         result=[k*x for x in self.coordinates]
         return Point(result)
     
+
     def inner(self, other: 'Point')->float:
         dim=len(self.coordinates)
         return sum(self.coordinates[i]*other.coordinates[i] for i in range(dim))
+    
+    def outer(self,other:'Point')->'Point':
+        if self.dimention()!=3 and other.dimention()!=3:
+            raise ValueError("outer must can be in 3 dimention")
+        x1,y1,z1=self.coordinates()
+        x2,y2,z2=other.coordinates()
+        result=[y1*z2-z1*y2,z1*x2-x1*z2,x1*y2-y1*x2]
+        return Point(result)
 
+    def norm(self)->float:
+        result=0
+        for i in range(self.dimention()):
+            result+=self.coordinates[i]**2
+        return math.sqrt(result)
+    
+    def degree(self,other:'Point')->float:
+        costheta=self.inner(other)/(self.norm()*other.norm())
+        theta=math.acos(costheta)
+        return theta
+    
     def distance(self, other: 'Point') -> float:
         diff = Point([self.coordinates[i] - other.coordinates[i] for i in range(len(self.coordinates))])
         return math.sqrt(diff.inner(diff))
@@ -36,8 +56,25 @@ class Point:
     
 
 
+class Set():
+    def __init__(self,element:list):
+        self.element=element
 
-class Domain():
+class FiniteSet(Set):
+    def __init__(self,element:list):
+        super().__init__(element)
+        self.element=element
+
+    def len(self,element:list):
+        return len(element)
+    
+    def Contain(self,urea):
+        if urea in self.element:
+            return True
+        else:
+            return False
+    
+class InfiniteSet():
     def __init__(self,lowerbound:Point,upperbound:Point):
         if lowerbound.dimention()!=upperbound.dimention():
             raise ValueError("The dimensions of the boundary values ​​must be the same")
@@ -58,7 +95,14 @@ class Domain():
                 break
 
         return result
-    
+
+class Domain(InfiniteSet):
+    def __init__(self,lowerbound:Point,upperbound:Point):
+        super().__init__(lowerbound,upperbound)
+        if lowerbound.dimention()!=upperbound.dimention():
+            raise ValueError("The dimensions of the boundary values ​​must be the same")
+        self.lowerbound=lowerbound
+        self.upperbound=upperbound
 
     def dimention(self) -> int:
         return self.lowerbound.dimention()
@@ -144,8 +188,6 @@ def solvediff(diffequal: Callable[[float, float], float], y0: float, t_bounds: P
     plt.show()
 
     return [Point([t_values[i], y_values[i]]) for i in range(len(t_values))]
-
-
 
 
 def diff(func:Function,point:Point,Parameter)->float:
@@ -278,7 +320,7 @@ def Graph2D(func:Function,lowerbound:Point,upperbound:Point):
 point1=Point([1,1])
 point2=Point([2,3])
 k=2.3
-print(point1.add(point2),point1.scale(k),point1.inner(point2))
+print(point1.add(point2),point1.scale(k),point1.inner(point2),point1.degree(point2))
 
 
 #testcase : class Function
