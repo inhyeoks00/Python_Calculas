@@ -6,7 +6,7 @@ from typing import List,Callable
 epsilon=1e-3
 memo={}
 
-
+#Point class 정의
 class Point:
     def __init__(self, coordinates:List[float]):
         self.coordinates=coordinates
@@ -25,7 +25,7 @@ class Point:
         dim=len(self.coordinates)
         return sum(self.coordinates[i]*other.coordinates[i] for i in range(dim))
     
-    def outer(self,other:'Point')->'Point':
+    def outer(self,other:'Point')->'Point': # 3차원 벡터의 외적
         if self.dimention()!=3 and other.dimention()!=3:
             raise ValueError("outer must can be in 3 dimention")
         x1,y1,z1=self.coordinates()
@@ -56,6 +56,7 @@ class Point:
     
 
 
+# Set, FiniteSet, InfiniteSet class 정의
 class Set():
     def __init__(self,element:list):
         self.element=element
@@ -88,7 +89,7 @@ class InfiniteSet():
    
 
 
-
+#Domain class 정의
 class Domain(InfiniteSet):
     def __init__(self,lowerbound:Point,upperbound:Point,condition:Callable[[Point],bool]):
         super().__init__(lowerbound,upperbound,condition)
@@ -110,7 +111,7 @@ class Domain(InfiniteSet):
         return f"Domain(lowerbound={self.lowerbound},upperbound={self.upperbound})"
     
 
-
+#Function class 정의
 class Function(Domain):
     def __init__(self,lowerbound:Point,upperbound:Point,mapping:Callable[[Point],float],condition:Callable[[Point],bool]):
         super().__init__(lowerbound,upperbound,condition)
@@ -131,7 +132,7 @@ class Function(Domain):
         
 
 
-
+#Parameter class 정의
 class Parameter(Domain):
     def __init__(self,lowerbound:Point,upperbound:Point,mapping:Callable[[Point],Point]):
         super().__init__(lowerbound,upperbound,condition)
@@ -147,7 +148,7 @@ class Parameter(Domain):
         return result
     
 
-
+#간단한 diffequal(미분방정식) class 정의
 class diffequal():
     def __init__(self,lowerbound:Point,upperbound:Point):
         self.lowerbound=lowerbound
@@ -156,6 +157,132 @@ class diffequal():
         return -y
     
 
+
+# def diff(편미분) 
+def diff(func:Function,point:Point,Parameter)->float:
+    if Parameter>func.dimention():
+        raise ValueError("Dimention is not matched")
+    realfuncvalue=func.Map(point)
+    point.coordinates[Parameter]+=epsilon
+    right_funcvalue=func.Map(point)
+    point.coordinates[Parameter]-=2*epsilon
+    left_funcvalue=func.Map(point)
+    if abs(right_funcvalue-left_funcvalue)>epsilon*1000:
+        raise ValueError("Non-continous in point")
+    right_diffvalue=(right_funcvalue-realfuncvalue)/epsilon
+    left_diffvalue=(realfuncvalue-left_funcvalue)/epsilon
+    if abs(right_diffvalue-left_diffvalue)<epsilon*1000:
+        return (right_diffvalue+left_diffvalue)/2
+    else:
+        raise ValueError("Non-differentiable in point")
+    
+
+# def gradient
+def gradient(func:Function,point:Point)->'Point':
+    result=[]
+    for i in range(func.dimention()):
+        result.append(diff(func,point,i))
+    grt=Point(result)
+    return grt
+
+
+#def newton_labson(뉴천-랩슨법, 방정식의 근 구하기)
+def newton_labson(func:Function,point:Point,number:int):
+    if func.dimention()!=1 or point.dimention()!=1:
+        raise ValueError("newton-labson must can be in 2 dimention")
+    def newton(n)->'Point':
+        if n==1:
+            return point
+        if n in memo:
+            return memo[n]
+        else:
+            memo[n]=Point([newton(n-1).coordinates[0]-func.Map(newton(n-1))/diff(func,newton(n-1),0)])
+            return memo[n]
+    return newton(number)
+
+
+    
+#def integral(다중적분)
+def integral(func:Function,bounds:List[Domain])->float:
+    if func.dimention()!=len(bounds):
+        raise ValueError("Function dimention does not match domain dimention")
+    
+    def integratevalue(d:int,nowpoint:Point)->float:
+        if d==len(bounds):
+            return func.Map(nowpoint)
+        
+        lower_bound=bounds[d].lowerbound.coordinates[0]
+        upper_bound=bounds[d].upperbound.coordinates[0]
+
+        result=0
+        nowcoord=lower_bound
+        while nowcoord<=upper_bound:
+            nextpoint=Point(nowpoint.coordinates[:])
+            nextpoint.coordinates[d]=nowcoord
+            
+            result+=integratevalue(d+1,nextpoint)*epsilon
+            
+            nowcoord+=epsilon
+        return result
+    
+    initialpoint=Point([0]*func.dimention())
+    return integratevalue(0,initialpoint)
+
+
+
+#def line_integral(선적분)
+def line_integral(func:Function,line:Parameter)->float:
+    if not(func.dimention()==line.dimention()+1):
+        raise ValueError("Dimention is not match")
+    summ=0
+    t=line.lowerbound.coordinates[0]
+    tend=line.upperbound.coordinates[0]
+    while t<=tend:
+        nowpoint=line.Map(Point([t]))
+        nextpoint=line.Map(Point([t+epsilon]))
+
+        lenth=[
+            (nextpoint.coordinates[i]-nowpoint.coordinates[i])/epsilon
+            for i in range(line.dimention())
+        ]
+
+
+        ds=math.sqrt(sum(d**2 for d in lenth))
+        funcvalue=func.Map(nowpoint)
+        summ+=ds*funcvalue*epsilon
+        t+=epsilon
+
+
+    return summ
+
+
+#def Graph2D(정의역 내 y=f(x) 그래프 그리기)
+def Graph2D(func:Function,lowerbound:Point,upperbound:Point):
+
+    xvalue=np.linspace(lowerbound.coordinates[0],upperbound.coordinates[0],1000)
+    yvalues=[]
+
+    for x in xvalue:
+        try:
+            y=func.Map(Point([x]))
+            yvalues.append(y)
+        except ValueError:
+            yvalues.append(np.nan)
+
+    plt.figure(figsize=(10,6))
+    plt.plot(xvalue,yvalues,label="y=f(x)",color="blue")
+    plt.axhline(0,color='black',linewidth=0.8,linestyle='--')
+    plt.axvline(0,color='black',linewidth=0.8,linestyle='--')
+    plt.title("Graph of y = f(x)")
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.grid(True)
+    plt.legend()
+    plt.savefig("graph2D.png", dpi=300)
+    plt.show()
+
+
+#def solvediff(간단한 미분방정식 수치해석적 풀이)
 def solvediff(diffequal: Callable[[float, float], float], y0: float, t_bounds: Point):
    
     t_start, t_end = t_bounds.coordinates
@@ -184,132 +311,6 @@ def solvediff(diffequal: Callable[[float, float], float], y0: float, t_bounds: P
     plt.show()
 
     return [Point([t_values[i], y_values[i]]) for i in range(len(t_values))]
-
-
-def diff(func:Function,point:Point,Parameter)->float:
-    if Parameter>func.dimention():
-        raise ValueError("Dimention is not matched")
-    realfuncvalue=func.Map(point)
-    point.coordinates[Parameter]+=epsilon
-    right_funcvalue=func.Map(point)
-    point.coordinates[Parameter]-=2*epsilon
-    left_funcvalue=func.Map(point)
-    if abs(right_funcvalue-left_funcvalue)>epsilon*1000:
-        raise ValueError("Non-continous in point")
-    right_diffvalue=(right_funcvalue-realfuncvalue)/epsilon
-    left_diffvalue=(realfuncvalue-left_funcvalue)/epsilon
-    if abs(right_diffvalue-left_diffvalue)<epsilon*1000:
-        return (right_diffvalue+left_diffvalue)/2
-    else:
-        raise ValueError("Non-differentiable in point")
-    
-
-   
-def gradient(func:Function,point:Point)->'Point':
-    result=[]
-    for i in range(func.dimention()):
-        result.append(diff(func,point,i))
-    grt=Point(result)
-    return grt
-
-
-
-def newton_labson(func:Function,point:Point,number:int):
-    if func.dimention()!=1 or point.dimention()!=1:
-        raise ValueError("newton-labson must can be in 2 dimention")
-    def newton(n)->'Point':
-        if n==1:
-            return point
-        if n in memo:
-            return memo[n]
-        else:
-            memo[n]=Point([newton(n-1).coordinates[0]-func.Map(newton(n-1))/diff(func,newton(n-1),0)])
-            return memo[n]
-    return newton(number)
-
-
-    
-
-def integral(func:Function,bounds:List[Domain])->float:
-    if func.dimention()!=len(bounds):
-        raise ValueError("Function dimention does not match domain dimention")
-    
-    def integratevalue(d:int,nowpoint:Point)->float:
-        if d==len(bounds):
-            return func.Map(nowpoint)
-        
-        lower_bound=bounds[d].lowerbound.coordinates[0]
-        upper_bound=bounds[d].upperbound.coordinates[0]
-
-        result=0
-        nowcoord=lower_bound
-        while nowcoord<=upper_bound:
-            nextpoint=Point(nowpoint.coordinates[:])
-            nextpoint.coordinates[d]=nowcoord
-            
-            result+=integratevalue(d+1,nextpoint)*epsilon
-            
-            nowcoord+=epsilon
-        return result
-    
-    initialpoint=Point([0]*func.dimention())
-    return integratevalue(0,initialpoint)
-
-
-
-
-def line_integral(func:Function,line:Parameter)->float:
-    if not(func.dimention()==line.dimention()+1):
-        raise ValueError("Dimention is not match")
-    summ=0
-    t=line.lowerbound.coordinates[0]
-    tend=line.upperbound.coordinates[0]
-    while t<=tend:
-        nowpoint=line.Map(Point([t]))
-        nextpoint=line.Map(Point([t+epsilon]))
-
-        lenth=[
-            (nextpoint.coordinates[i]-nowpoint.coordinates[i])/epsilon
-            for i in range(line.dimention())
-        ]
-
-
-        ds=math.sqrt(sum(d**2 for d in lenth))
-        funcvalue=func.Map(nowpoint)
-        summ+=ds*funcvalue*epsilon
-        t+=epsilon
-
-
-    return summ
-
-
-def Graph2D(func:Function,lowerbound:Point,upperbound:Point):
-
-    xvalue=np.linspace(lowerbound.coordinates[0],upperbound.coordinates[0],1000)
-    yvalues=[]
-
-    for x in xvalue:
-        try:
-            y=func.Map(Point([x]))
-            yvalues.append(y)
-        except ValueError:
-            yvalues.append(np.nan)
-
-    plt.figure(figsize=(10,6))
-    plt.plot(xvalue,yvalues,label="y=f(x)",color="blue")
-    plt.axhline(0,color='black',linewidth=0.8,linestyle='--')
-    plt.axvline(0,color='black',linewidth=0.8,linestyle='--')
-    plt.title("Graph of y = f(x)")
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig("graph2D.png", dpi=300)
-    plt.show()
-
-
-
-
 
 
 #testcase : class Point
