@@ -87,18 +87,6 @@ class InfiniteSet():
 
    
 
-def condition(x1:Point,x2:Point,point:Point)->bool:
-    if x1.coordinates[0]<point.coordinates[0]<x2.coordinates[0]:
-        return True
-    else:
-        return False
-x1=Point([0])
-x2=Point([10])
-x3=Point([3])
-sett=InfiniteSet(x1,x2,condition)
-print(sett.Contain(x3))
-
-
 
 
 class Domain(InfiniteSet):
